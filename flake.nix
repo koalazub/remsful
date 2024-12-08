@@ -23,7 +23,7 @@
         in
         {
           default = pkgs.stdenvNoCC.mkDerivation {
-            pname = "WhoseDefaultBrowser";
+            pname = "Remsful";
             version = "1.0.0";
             src = ./.;
             buildInputs = [ pkgs.darwin.apple_sdk.frameworks.CoreServices ];
