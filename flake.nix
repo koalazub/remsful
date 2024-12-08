@@ -26,7 +26,9 @@
             pname = "Remsful";
             version = "1.0.0";
             src = ./.;
-            buildInputs = [ pkgs.darwin.apple_sdk.frameworks.CoreServices ];
+            buildInputs = with pkgs; [
+              darwin.apple_sdk.frameworks.CoreServices
+            ];
           };
         }
       );
