@@ -3,8 +3,7 @@ import pulsar
 import HealthKit
 
 struct ContentView: View {
-    @StateObject private var healthKitManager = HealthKitManager()
-    @State private var updateTrigger = false
+    @StateObject private var healthKitManager = HealthKitManager(heartRate: 60.0, respiratoryRate: 15.0)
     @State private var isSimulated = false
     @State private var simulatedHeartRate: Double = 60.0
     @State private var simulatedRespiratoryRate: Double = 15.0
@@ -16,9 +15,12 @@ struct ContentView: View {
         ZStack {
             Color.black.ignoresSafeArea()
             
-            PulseViewRepresentable(duration: 60 / currentRate)
-                .ignoresSafeArea()
-                .id(updateTrigger)
+            PulseViewRepresentable(
+                currentRate: currentRate,
+                radius: 150, // Adjust this value as needed
+                color: UIColor(red: 255/255, green: 0/255, blue: 255/255, alpha: 1.0)
+            )
+            .ignoresSafeArea()
             
             VStack {
                 Spacer()
@@ -86,46 +88,55 @@ struct ContentView: View {
         }
         .task {
             await healthKitManager.requestAuthorization()
+            await updateRate()
         }
         .sheet(isPresented: $showingInputSheet) {
             ManualInputView(rate: $manualInputRate, isHeartRate: showingHeartRate, onSave: saveManualInput)
         }
+        .onChange(of: showingHeartRate) {
+            Task {
+                await updateRate()
+            }
+        }
+        .onChange(of: isSimulated) {
+            Task {
+                await updateRate()
+            }
+        }
     }
     
     private var currentRate: Double {
-        isSimulated ?
-            (showingHeartRate ? simulatedHeartRate : simulatedRespiratoryRate) :
-            (showingHeartRate ? healthKitManager.heartRate : healthKitManager.respiratoryRate)
-    }
+          isSimulated ?
+              (showingHeartRate ? simulatedHeartRate : simulatedRespiratoryRate) :
+              (showingHeartRate ? healthKitManager.heartRate : healthKitManager.respiratoryRate)
+      }
     
     private func updateRate() async {
-        if isSimulated {
-            if showingHeartRate {
-                simulatedHeartRate = Double.random(in: 60...100)
+            if isSimulated {
+                if showingHeartRate {
+                    simulatedHeartRate = Double.random(in: 60...100)
+                } else {
+                    simulatedRespiratoryRate = Double.random(in: 12...20)
+                }
             } else {
-                simulatedRespiratoryRate = Double.random(in: 12...20)
-            }
-        } else {
-            if showingHeartRate {
-                await healthKitManager.fetchLatestHeartRate()
-            } else {
-                await healthKitManager.fetchLatestRespiratoryRate()
+                if showingHeartRate {
+                    await healthKitManager.fetchLatestHeartRate()
+                } else {
+                    await healthKitManager.fetchLatestRespiratoryRate()
+                }
             }
         }
-        updateTrigger.toggle()
-    }
     
     private func saveManualInput() {
-        if let rate = Double(manualInputRate) {
-            if showingHeartRate {
-                simulatedHeartRate = rate
-            } else {
-                simulatedRespiratoryRate = rate
-            }
-            updateTrigger.toggle()
-        }
-        showingInputSheet = false
-    }
+           if let rate = Double(manualInputRate) {
+               if showingHeartRate {
+                   simulatedHeartRate = rate
+               } else {
+                   simulatedRespiratoryRate = rate
+               }
+           }
+           showingInputSheet = false
+       }
 }
 
 struct ManualInputView: View {
@@ -159,22 +170,22 @@ struct ManualInputView: View {
 }
 
 struct PulseViewRepresentable: UIViewRepresentable {
-    var duration: TimeInterval
-    
+    var currentRate: Double
+    var radius: CGFloat
+    var color: UIColor
+
     func makeUIView(context: Context) -> PulseView {
         let pulseView = PulseView(frame: UIScreen.main.bounds)
         updatePulse(pulseView)
         return pulseView
     }
-    
+
     func updateUIView(_ uiView: PulseView, context: Context) {
         updatePulse(uiView)
     }
-    
+
     private func updatePulse(_ pulseView: PulseView) {
-        pulseView.stopPulsing()
-        let fuchsiaColor = UIColor(red: 255/255, green: 0/255, blue: 255/255, alpha: 1.0)
-        pulseView.startPulsing(duration: duration, repeatCount: .infinity, color: fuchsiaColor)
-        print("Pulse updated with duration: \(duration)")
+        pulseView.startPulsing(duration: 60 / currentRate, color: color, radius: radius)
+        print("Pulse updated with rate: \(currentRate), radius: \(radius)")
     }
 }
